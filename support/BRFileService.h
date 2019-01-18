@@ -26,7 +26,9 @@
 #ifndef BRFileService_h
 #define BRFileService_h
 
-#if defined (TASK_DESCRIPTION)
+#include <pthread.h>
+
+// #if defined (TASK_DESCRIPTION)
 //Both Bitcoin and Ethereum Wallet Managers include the ability to save and load peers, block,
 //transactions and logs (for Ethereum) to the file system.  But, they both implement the file
 //operations independently.  Pull out the implementation into BRFileService.
@@ -42,21 +44,81 @@
 //{code:C}
 typedef struct BRFileServiceRecord *BRFileService;
 
+typedef enum {
+    FS_ERR_CLEAR,       // creation went perfectly
+    FS_ERR_EXISTS,      // directory exists
+    FS_ERR_DIR_CREATE   // error creating the directory
+} BRFileServiceError;
+
+// adjust buffer sizes as needed
+enum {
+    FSR_LENGTH_BASEDIR   = 100,
+    FSR_LENGTH_NETWORK   =  25,
+    FSR_LENGTH_CURRENCY  =  25,
+    FSR_LENGTH_TYPE      =  25,
+    FSR_ELEMENTS_MAXIMUM =  10
+} BRFileServiceLimit;
+
+enum {
+    FS_MUTEX_FILESERVICELOAD,
+    FS_MUTEX_FILESERVICESAVE,
+    FS_MUTEX_FILESERVICECLEAR,
+    FS_MUTEX_FILESERVICEDEFINETYPE,
+    FS_MUTEX_FILESERVICEDEFINECURRENTVERSION,
+    FS_MUTEX_ELEMENTS
+} BRFileServiceTheadSafeFunctions;
+
+// PTHREAD_MUTEX_INITIALIZER or PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+static pthread_mutex_t BRFileServiceMutex[FS_MUTEX_ELEMENTS] = {
+    PTHREAD_MUTEX_INITIALIZER, // FS_MUTEX_FILESERVICELOAD
+    PTHREAD_MUTEX_INITIALIZER, // FS_MUTEX_FILESERVICESAVE
+    PTHREAD_MUTEX_INITIALIZER, // FS_MUTEX_FILESERVICECLEAR
+    PTHREAD_MUTEX_INITIALIZER, // FS_MUTEX_FILESERVICEDEFINETYPE
+    PTHREAD_MUTEX_INITIALIZER // FS_MUTEX_FILESERVICEDEFINECURRENTVERSION
+};
+
+typedef int (*_FileReader)(BRSet *results, char *path, uint16_t version);
+typedef int (*_FileWriter)(void *entity, char *path, uint16_t version);
+
+struct BRFileServiceRecord {
+    uint32_t status;
+
+    char baseDirectory[FSR_LENGTH_BASEDIR];
+    char network[FSR_LENGTH_NETWORK];
+    char currency[FSR_LENGTH_CURRENCY];
+
+    // used when current revision is set
+    uint8_t current_element;
+
+    uint8_t count_elements;
+
+    char type[FSR_LENGTH_TYPE][FSR_ELEMENTS_MAXIMUM];
+    uint16_t version[FSR_ELEMENTS_MAXIMUM];
+
+    _FileReader FileReader[FSR_ELEMENTS_MAXIMUM];
+    _FileWriter FileWriter[FSR_ELEMENTS_MAXIMUM];
+};
+
+// return available storage
+extern uint64_t
+fileServiceGetFreeStorage(BRFileService fs);
+
+/* args (w/ 'currency' as BTC, BCH, ETH and 'network' and ???) */
 extern BRFileService
-fileServiceCreate(/* args (w/ 'currency' as BTC, BCH, ETH and 'network' and ???) */);
+fileServiceCreate(const char *baseDirectory, const char *network, const char *currency);
 
 extern void
-fileServiceRelese (BRFileService fs);
+fileServiceRelease (BRFileService fs);
 
-extern void /* error code? or return 'results' (instead of filling `results`) */
+extern int
 fileServiceLoad (BRFileService fs,
                  BRSet *results,
                  const char *type);        /* blocks, peers, transactions, logs, ... */
 
-extern void /* error code? */
+extern int
 fileServiceSave (BRFileService fs,
-                 const char *type,  /* block, peers, transactions, logs, ... */
-                 void *entity);     /* BRMerkleBlock*, BRTransaction, BREthereumTransaction, ... */
+                 void *entity,     /* BRMerkleBlock*, BRTransaction, BREthereumTransaction, ... */
+                 const char *type);  /* block, peers, transactions, logs, ... */
 
 extern void
 fileServiceClear (BRFileService fs,
@@ -65,19 +127,19 @@ fileServiceClear (BRFileService fs,
 extern void
 fileServiceClearAll (BRFileService fs);
 
-extern void
+extern int
 fileServiceDefineType (BRFileService fs,
                        const char *type,
-                       /* VersionType */ version,
-                       /* ReadFunction */ reader,
-                       /* WriteFunction */ writer);
+                       uint16_t version,
+                       int (*reader)(BRSet *results, char *path, uint16_t version),
+                       int (*writer)(void *entity, char *path, uint16_t version));
 
-extern void
+extern int
 fileServiceDefineCurrentVersion (BRFileService fs,
                                  const char *type,
-                                 /* VersionType */ version);
+                                 uint16_t version);
 //{code}
-
+#if defined (TASK_DESCRIPTION)
 //Example use:
 
 //{code:C}

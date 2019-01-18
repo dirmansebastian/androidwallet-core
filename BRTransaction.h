@@ -27,6 +27,7 @@
 
 #include "BRKey.h"
 #include "BRInt.h"
+#include "BRSet.h"
 #include <stddef.h>
 #include <inttypes.h>
 
@@ -144,6 +145,28 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
 
 // true if tx meets IsStandard() rules: https://bitcoin.org/en/developer-guide#standard-transactions
 int BRTransactionIsStandard(const BRTransaction *tx);
+
+/**
+ * \brief BRTransaction file reader called by BRFileService
+ *
+ * Note that the caller is responsible for memory deallocation of returned set
+ *
+ * \param results, where all files will be returned into in deserialized format
+ * \param path, the directory path to read the file(s)
+ * \param version, the file version to parse results
+ * \return 0 on success, the line number on failure
+ */
+int BRTransactionFileReader(BRSet *results, char *path, uint16_t version);
+
+/**
+ * \brief BRTransaction file writer called by BRFileService
+ *
+ * \param entity, which is a BRTransaction structure
+ * \param path, the directory path to write the file
+ * \param version, the currency version to imbed in the file header
+ * \return 0 on success, the line number on failure
+ */
+int BRTransactionFileWriter(void *entity, char *path, uint16_t version);
 
 // returns a hash value for tx suitable for use in a hashtable
 inline static size_t BRTransactionHash(const void *tx)

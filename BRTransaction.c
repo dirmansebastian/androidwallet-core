@@ -26,11 +26,15 @@
 #include "BRKey.h"
 #include "BRAddress.h"
 #include "BRArray.h"
+#include "BRSet.h"
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <time.h>
 #include <unistd.h>
+#include "support/BRFileService.h"
+#include <dirent.h>
+#include <stdio.h>
 
 #define TX_VERSION           0x00000001
 #define TX_LOCKTIME          0x00000000
@@ -766,4 +770,176 @@ void BRTransactionFree(BRTransaction *tx)
         array_free(tx->inputs);
         free(tx);
     }
+}
+
+/**
+ * \brief BRTransaction file reader called by BRFileService
+ *
+ * Note that the caller is responsible for memory deallocation of returned set
+ *
+ * \param results, where all files will be returned into in deserialized format
+ * \param path, the directory path to read the file(s)
+ * \param version, the file version to parse results
+ * \return 0 on success, the line number on failure
+ */
+int BRTransactionFileReader(BRSet *results, char *path, uint16_t version)
+{
+    FILE *file = NULL;
+    char filepath[256];
+    BRTransaction * tx;
+    uint8_t * buffer = NULL;
+    struct dirent *nextfile;
+    uint32_t count = 0;
+    size_t bytes_read;
+    uint16_t file_version;
+    int status = 0;
+    uint8_t skip = 0;
+    
+    DIR *directory = opendir(path);
+
+    if (directory != NULL) {
+        while ((nextfile = readdir(directory)) != NULL) {
+            if (strcmp(nextfile->d_name, "..") != 0 && strcmp(nextfile->d_name, ".") != 0) {
+                
+                sprintf(filepath, "%s/%s", path, nextfile->d_name);
+                
+                file = fopen(filepath, "rb");
+                
+                if (file) {
+                    // Read: the 16-bit version
+                    bytes_read = fread (&file_version, sizeof(uint16_t), 1, file);
+
+                    // enable to parse results by version
+                    // skip = (version == file_version) ? 0 : 1;
+                    
+                    if (bytes_read != sizeof(uint16_t)) {
+                        status = __LINE__;
+                    }
+
+                    if (!status) {
+                        // Read: the 32-bit count of serialized bytes to read
+                        bytes_read = fread (&count, sizeof(uint32_t), 1, file);
+                    
+                        if (bytes_read != sizeof(uint32_t)) {
+                            status = __LINE__;
+                        }
+                    }
+                    
+                    if (!status) {
+                        buffer = (uint8_t *) malloc (count);
+                        
+                        if (NULL == buffer) {
+                            status = __LINE__;
+                        }
+                    }
+
+                    if (!status) {
+                        // Read: the serialized buffer
+                        if (count != fread (buffer, 1, count, file)) {
+                            status = __LINE__;
+                        }
+                    }
+                    
+                    if (file != NULL) {
+                        fclose (file);
+                    }
+
+                    // add transaction to results
+                    if (!status && !skip) {
+                        tx = BRTransactionParse(buffer, count);
+                        BRSetAdd(results, tx);
+                        
+                        // owner of set is responsible for memory deallocation
+                        // BRTransactionFree(tx);
+                    }
+
+                    if (buffer) {
+                        free(buffer);
+                    }
+                }
+            }
+        }
+        
+        if (directory != NULL) {
+            closedir(directory);
+        }
+    }
+
+    return status;
+}
+
+/**
+ * \brief BRTransaction file writer called by BRFileService
+ *
+ * \param entity, which is a BRTransaction structure
+ * \param path, the directory path to write the file
+ * \param version, the currency version to imbed in the file header
+ * \return 0 on success, the line number on failure
+ */
+int BRTransactionFileWriter(void *entity, char *path, uint16_t version)
+{
+    int status = 0;
+    char filePath[256];
+    FILE *file = NULL;
+
+    BRTransaction *transaction = (BRTransaction *) entity;
+
+    uint32_t count = (uint32_t) BRTransactionSerialize(transaction, NULL, 0);
+    uint8_t *buffer = (uint8_t *) malloc (count);
+        
+    if (NULL == buffer) {
+        status = __LINE__;
+    }
+
+    if (!status) {
+        BRTransactionSerialize (transaction, buffer, count);
+    
+        // create filename using the transaction hash
+        // filepath: /DIR_PATH/network/currency/type/filename
+        // filename is the hash, which is 64 bytes in length
+        // type is under 10 chars
+        // currency is 3 bytes
+        // network is under 10 bytes
+        // that's 87 bytes
+        // assume that DIR_PATH is less than 128 bytes
+        sprintf(filePath, "%s/%s", path, u256hex(transaction->txHash));
+    
+        // open file in binary mode
+        file = fopen (filePath, "wb");
+    
+        if (file == NULL) {
+            status = __LINE__;
+        }
+    }
+
+    if (!status) {
+        // Write: the version in little endian format
+        if (sizeof(uint16_t) != fwrite (&version, sizeof(uint16_t), 1, file)) {
+            status = __LINE__;
+        }
+    }
+
+    if (!status) {
+        // Write: the serialized count in little endian format
+        if (sizeof(uint32_t) != fwrite (&count, sizeof(uint32_t), 1, file)) {
+            status = __LINE__;
+        }
+    }
+
+    if (!status) {
+        // Write: the serialized buffer
+        if (count != fwrite (buffer, 1, count, file)) {
+            status = __LINE__;
+        }
+    }
+    
+    if (file != NULL) {
+        fclose (file);
+    }
+
+    if (buffer) {
+        free(buffer);
+    }
+
+    return status;
 }

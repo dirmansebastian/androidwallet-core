@@ -1,6 +1,6 @@
 //
 //  BREthereumLightNode
-//  breadwallet-core Ethereum
+//  androidwallet-core Ethereum
 //
 //  Created by Ed Gamble on 3/5/18.
 //  Copyright (c) 2018 breadwallet LLC

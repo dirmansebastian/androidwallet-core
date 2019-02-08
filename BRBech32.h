@@ -1,6 +1,6 @@
 //
 //  BRBech32.h
-//  breadwallet-core
+//  androidwallet-core
 //
 //  Created by Aaron Voisine on 1/20/18.
 //  Copyright (c) 2018 breadwallet LLC

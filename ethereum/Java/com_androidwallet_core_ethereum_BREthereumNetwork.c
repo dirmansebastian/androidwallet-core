@@ -1,9 +1,9 @@
 //
-//  BREthereumNetwork
+//  com_androidwallet_core_ethereum_BREthereumNetwork
 //  androidwallet-core Ethereum
 //
-//  Created by Ed Gamble on 3/13/18.
-//  Copyright (c) 2018 breadwallet LLC
+//  Created by Ed Gamble on 3/20/18.
+//  Copyright (c) 2018 androidwallet LLC
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,27 +23,39 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#ifndef BR_Ethereum_Network_h
-#define BR_Ethereum_Network_h
+#include "com_androidwallet_core_ethereum_BREthereumNetwork.h"
+#include "BREthereumNetwork.h"
 
-#include "BRInt.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct BREthereumNetworkRecord *BREthereumNetwork;
-typedef int BREthereumChainId;  // 'Officially' UInt256
-
-extern BREthereumChainId
-networkGetChainId (BREthereumNetwork network);
-
-extern const BREthereumNetwork ethereumMainnet;
-extern const BREthereumNetwork ethereumTestnet;
-extern const BREthereumNetwork ethereumRinkeby;
-
-#ifdef __cplusplus
+/*
+ * Class:     com_androidwallet_core_ethereum_BREthereumNetwork
+ * Method:    jniGetMainnet
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_androidwallet_core_ethereum_BREthereumNetwork_jniGetMainnet
+        (JNIEnv *env, jclass thisClass) {
+    return (jlong) ethereumMainnet;
 }
-#endif
 
-#endif // BR_Ethereum_Network_h
+/*
+ * Class:     com_androidwallet_core_ethereum_BREthereumNetwork
+ * Method:    jniGetTestnet
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_androidwallet_core_ethereum_BREthereumNetwork_jniGetTestnet
+        (JNIEnv *env, jclass thisClass) {
+    return (jlong) ethereumTestnet;
+}
+
+/*
+ * Class:     com_androidwallet_core_ethereum_BREthereumNetwork
+ * Method:    jniGetRinkeby
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_androidwallet_core_ethereum_BREthereumNetwork_jniGetRinkeby
+        (JNIEnv *env, jclass thisClass) {
+    return (jlong) ethereumRinkeby;
+}
+
